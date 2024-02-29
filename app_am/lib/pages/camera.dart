@@ -1,3 +1,5 @@
+import 'package:app_am/providers/server_response.dart';
+import 'package:app_am/providers/url_server.dart';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -5,6 +7,8 @@ import 'package:http/http.dart' as http;
 //import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+
+import 'package:provider/provider.dart';
 
 class CameraPage extends StatefulWidget {
   const CameraPage({super.key});
@@ -22,6 +26,7 @@ class _CameraPageState extends State<CameraPage> {
   double widthBox = 920;
   double heightBox = 360;
   int frameCounter = 0;
+  bool _isSendingImage = false;
 
   @override
   void initState() {
@@ -145,36 +150,39 @@ class _CameraPageState extends State<CameraPage> {
       Uint8List croppedBytes = _cropImageBytes(image, cropX, cropY, widthBox.toInt(), heightBox.toInt());
       String base64String = base64.encode(croppedBytes);
       
-      _send(base64String, widthBox.toInt(), heightBox.toInt());
+     if (!_isSendingImage && mounted) {
+        _isSendingImage = true;
+        _send(base64String, widthBox.toInt(), heightBox.toInt());
+      }
     }
   }
 
   Uint8List _cropImageBytes(CameraImage image, int x, int y, int width, int height) {
 
-  Uint8List originalBytes = image.planes[0].bytes;
-  Uint8List croppedBytes = Uint8List(width * height);
-  int croppedIndex = 0;
+    Uint8List originalBytes = image.planes[0].bytes;
+    Uint8List croppedBytes = Uint8List(width * height);
+    int croppedIndex = 0;
 
-  for (int j = 0; j < height; j++) {
-    for (int i = 0; i < width; i++) {
-      int originalIndex = (image.width * (j + y) + (i + x));
-      croppedBytes[croppedIndex++] = originalBytes[originalIndex];
+    for (int j = 0; j < height; j++) {
+      for (int i = 0; i < width; i++) {
+        int originalIndex = (image.width * (j + y) + (i + x));
+        croppedBytes[croppedIndex++] = originalBytes[originalIndex];
+      }
     }
-  }
 
-  return croppedBytes;
+    return croppedBytes;
 }
 
   _send(String data, int width, int height) async {
 
     String jsonData = json.encode({
-      "frameData": data,
-      "width": width,
-      "height": height,
+    "frameData": data,
+    "width": width,
+    "height": height,
     });
 
-    var url =
-      Uri.https('227a-177-115-28-24.ngrok-free.app','camera');
+    final urlProvider = Provider.of<UrlProvider>(context, listen: false).baseUrl;
+    var url = Uri.https(urlProvider, '/camera');
     final response = await http.post(url,
       headers: {'Content-Type': 'application/json'},
       body: jsonData,
@@ -182,16 +190,20 @@ class _CameraPageState extends State<CameraPage> {
 
     if (response.statusCode == 200) {
       debugPrint('Image successfully sent to the server!');
+      debugPrint(response.body);
+      Provider.of<ServerResponseProvider>(context, listen: false)
+        .setServerResponse(response.bodyBytes);
+      Navigator.pushReplacementNamed(context, '/display_data');
     } else if (response.statusCode == 422) {
       debugPrint("Erro 422: Invalid data.");
     } else if (response.statusCode == 502) {
-    debugPrint("Erro 502: Server Down.");
-    showToast('Erro: O servidor está offline');
-    Navigator.of(context).pop();
+      debugPrint("Erro 502: Server Down.");
+      showToast('Erro: O servidor está offline');
+      Navigator.of(context).pop();
     } else if (response.statusCode == 404) {
-    debugPrint("Erro 502: Server Down.");
-    showToast('Erro: URL do servidor está incorreto');
-    Navigator.of(context).pop();
+      debugPrint("Erro 502: Server Down.");
+      showToast('Erro: URL do servidor está incorreto');
+      Navigator.of(context).pop();
     } else {
       debugPrint('Error sending image to the server. Status code: ${response.statusCode}');
     }
@@ -272,5 +284,5 @@ class _CameraPageState extends State<CameraPage> {
     ),
   ),
 );
-  }
+}
 }

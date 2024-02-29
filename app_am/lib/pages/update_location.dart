@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:provider/provider.dart';
+import 'package:app_am/providers/gps_controller.dart';
 
 class UpdateLocation extends StatelessWidget {
   const UpdateLocation({super.key});
@@ -19,6 +21,7 @@ class UpdateLocation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    GPSController gpsController = Provider.of<GPSController>(context, listen: false);
     return Container(
       height: 150,
       width: 400,
@@ -39,6 +42,7 @@ class UpdateLocation extends StatelessWidget {
               children: [
                 ElevatedButton(onPressed: () {
                   showToast('Localização atualizada');
+                  gpsController.updateLocationAPI(context);
                   Navigator.of(context).pop();
                   }, 
                   child: Text('Sim')),
